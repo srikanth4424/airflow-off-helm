@@ -1,0 +1,9 @@
+kubectl create secret generic postgres-secret \
+  --from-literal=postgres-password=your-secure-password \
+  --namespace airflow
+
+kubectl create secret generic postgres-secret \
+  --from-literal=postgres-password=your-secure-password \
+  --namespace airflow
+
+helm install airflow ./airflow-chart --namespace airflow --create-namespace -f values.yaml

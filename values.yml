@@ -1,0 +1,60 @@
+airflow:
+  config:
+    configMapName: airflow-config
+
+redis:
+  enabled: true
+  image:
+    registry: your-registry.com
+    repository: your-custom-redis
+    tag: latest
+    pullPolicy: IfNotPresent
+  config: |
+    bind 0.0.0.0
+    requirepass $REDIS_PASSWORD  # Use environment variable for the password
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+  extraEnv:
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: redis-secret
+        key: redis-password
+
+
+postgresql:
+  enabled: true
+  image:
+    registry: your-registry.com
+    repository: your-custom-postgres
+    tag: latest
+    pullPolicy: IfNotPresent
+  auth:
+    existingSecret: postgres-secret # Use the secret for the password
+    existingSecretKey: postgres-password # Key inside the secret for the password
+    username: airflow_user
+    database: airflow_db
+  primary:
+    extraVolumeMounts:
+    - name: postgres-config-volume
+      mountPath: /postgresql/conf/pg_hba.conf
+      subPath: pg_hba.conf
+    - name: postgres-config-volume
+      mountPath: /postgresql/conf/postgresql.conf
+      subPath: postgresql.conf
+    extraVolumes:
+    - name: postgres-config-volume
+      configMap:
+        name: postgres-config
+
+
+workers:
+  replicas: 1
+
+scheduler:
+  replicas: 1
+
+webserver:
+  replicas: 1
+  service:
+    type: NodePort

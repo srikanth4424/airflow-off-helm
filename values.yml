@@ -58,3 +58,120 @@ webserver:
   replicas: 1
   service:
     type: NodePort
+
+----------------------------------------
+
+# Airflow Configuration
+airflow:
+  # Custom Airflow image
+  image:
+    repository: custom-airflow-image
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Webserver Config
+  web:
+    annotations:
+      vault.hashicorp.com/agent-inject: 'true'
+      vault.hashicorp.com/role: 'airflow-role'
+      vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+      vault.hashicorp.com/agent-inject-secret-webserver-key: 'secret/data/airflow-webserver-key'
+      vault.hashicorp.com/agent-inject-template-db-password: |
+        {{- with secret "secret/data/airflow-db-password" -}}
+        export DB_PASSWORD={{ .Data.data.password }}
+        {{- end }}
+      vault.hashicorp.com/agent-inject-template-webserver-key: |
+        {{- with secret "secret/data/airflow-webserver-key" -}}
+        export WEBSERVER_KEY={{ .Data.data.webserver_key }}
+        {{- end }}
+
+  # Scheduler Config
+  scheduler:
+    annotations:
+      vault.hashicorp.com/agent-inject: 'true'
+      vault.hashicorp.com/role: 'airflow-role'
+      vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+      vault.hashicorp.com/agent-inject-template-db-password: |
+        {{- with secret "secret/data/airflow-db-password" -}}
+        export DB_PASSWORD={{ .Data.data.password }}
+        {{- end }}
+
+  # Database configuration
+  config:
+    AIRFLOW__CORE__EXECUTOR: "CeleryExecutor"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__DATABASE__PASSWORD: "{{ .Env.DB_PASSWORD }}"  # Injected via Vault
+    AIRFLOW__WEBSERVER__SECRET_KEY: "{{ .Env.WEBSERVER_KEY }}"  # Injected via Vault
+
+  # Environment variables
+  extraEnv:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://otel-collector:4317"
+    - name: OTEL_EXPORTER_OTLP_INSECURE
+      value: "true"
+    - name: AIRFLOW__OTEL__ENABLED
+      value: "True"
+    - name: AIRFLOW__OTEL__EXPORTER
+      value: "OTLP"
+    - name: AIRFLOW__OTEL__OTLP_ENDPOINT
+      value: "http://otel-collector:4317"
+    - name: AIRFLOW__OTEL__INSTRUMENTATION
+      value: "True"
+    - name: AIRFLOW__OTEL__TRACES_EXPORTER
+      value: "otlp"
+
+# Redis Configuration
+redis:
+  image:
+    repository: custom-redis-image
+    tag: latest
+    pullPolicy: IfNotPresent
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-redis-password: 'secret/data/airflow-redis-password'
+    vault.hashicorp.com/agent-inject-template-redis-password: |
+      {{- with secret "secret/data/airflow-redis-password" -}}
+      export REDIS_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+
+# PgBouncer Configuration
+pgbouncer:
+  enabled: true
+  image:
+    repository: custom-pgbouncer-image
+    tag: latest
+    pullPolicy: IfNotPresent
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-pgbouncer-password: 'secret/data/airflow-pgbouncer-password'
+    vault.hashicorp.com/agent-inject-template-pgbouncer-password: |
+      {{- with secret "secret/data/airflow-pgbouncer-password" -}}
+      export PGBOUNCER_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+
+# Postgres Configuration
+postgresql:
+  enabled: true
+  image:
+    repository: custom-postgres-image
+    tag: latest
+    pullPolicy: IfNotPresent
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-postgres-password: 'secret/data/airflow-postgres-password'
+    vault.hashicorp.com/agent-inject-template-postgres-password: |
+      {{- with secret "secret/data/airflow-postgres-password" -}}
+      export POSTGRES_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+
+# PgBouncer Custom Configuration (Optional)
+pgbouncer:
+  configmap:
+    pgbouncer.ini: |
+      [databases]
+      airflow = host=localhost port=5432 dbname=airflow user=pgbouncer_user password=$PGBOUNCER_PASSWORD
+
+

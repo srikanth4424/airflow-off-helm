@@ -1,0 +1,37 @@
+apiVersion: skaffold/v2beta17
+kind: Config
+build:
+  artifacts:
+    - image: custom-airflow-image
+      context: .
+      docker:
+        dockerfile: Dockerfile
+    - image: custom-redis-image
+      context: .
+      docker:
+        dockerfile: Dockerfile.redis
+    - image: custom-pgbouncer-image
+      context: .
+      docker:
+        dockerfile: Dockerfile.pgbouncer
+    - image: custom-postgres-image
+      context: .
+      docker:
+        dockerfile: Dockerfile.postgres
+deploy:
+  helm:
+    releases:
+      - name: airflow
+        chartPath: ./charts/airflow
+        namespace: airflow
+        valuesFiles:
+          - ./charts/airflow/values.yaml
+        values:
+          airflow:
+            image: custom-airflow-image
+          redis:
+            image: custom-redis-image
+          pgbouncer:
+            image: custom-pgbouncer-image
+          postgresql:
+            image: custom-postgres-image

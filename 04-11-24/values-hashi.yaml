@@ -1,0 +1,113 @@
+# Airflow Base Configuration
+airflow:
+  image:
+    repository: apache/airflow
+    tag: "2.6.0"
+    pullPolicy: IfNotPresent
+
+  config:
+    AIRFLOW__CORE__EXECUTOR: "CeleryExecutor"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:{{ .Env.DB_PASSWORD }}@pgbouncer-service:5432/airflow"
+    AIRFLOW__OTEL__ENABLED: "True"
+    AIRFLOW__OTEL__EXPORTER: "OTLP"
+    AIRFLOW__OTEL__OTLP_ENDPOINT: "http://otel-collector:4317"
+    AIRFLOW__OTEL__INSTRUMENTATION: "True"
+    AIRFLOW__OTEL__TRACES_EXPORTER: "otlp"
+    AIRFLOW__WEBSERVER__SECRET_KEY: "{{ .Env.WEBSERVER_KEY }}"
+
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+    vault.hashicorp.com/agent-inject-secret-redis-password: 'secret/data/airflow-redis-password'
+    vault.hashicorp.com/agent-inject-secret-fernet-key: 'secret/data/airflow-fernet-key'
+    vault.hashicorp.com/agent-inject-secret-webserver-key: 'secret/data/airflow-webserver-key'
+    vault.hashicorp.com/agent-inject-template-db-password: |
+      {{- with secret "secret/data/airflow-db-password" -}}
+      export DB_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-redis-password: |
+      {{- with secret "secret/data/airflow-redis-password" -}}
+      export REDIS_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-fernet-key: |
+      {{- with secret "secret/data/airflow-fernet-key" -}}
+      export AIRFLOW__CORE__FERNET_KEY={{ .Data.data.fernet_key }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-webserver-key: |
+      {{- with secret "secret/data/airflow-webserver-key" -}}
+      export AIRFLOW__WEBSERVER__SECRET_KEY={{ .Data.data.webserver_key }}
+      {{- end }}
+
+
+# Redis Configurations (for Celery broker)
+redis:
+  enabled: true
+  auth:
+    enabled: true
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-redis-password: 'secret/data/airflow-redis-password'
+    vault.hashicorp.com/agent-inject-template-redis-password: |
+      {{- with secret "secret/data/airflow-redis-password" -}}
+      export REDIS_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+
+# PgBouncer Configuration
+pgbouncer:
+  enabled: true
+  image:
+    repository: edoburu/pgbouncer
+    tag: latest
+    pullPolicy: IfNotPresent
+  config:
+    databases:
+      airflow: "host=postgresql port=5432 dbname=airflow user=airflow password=$DB_PASSWORD"
+    pgbouncer:
+      listen_port: 5432
+      max_client_conn: 100
+      default_pool_size: 20
+      min_pool_size: 10
+      reserve_pool_size: 5
+      reserve_pool_timeout: 5
+      auth_type: md5
+      ignore_startup_parameters: extra_float_digits
+
+  auth:
+    enabled: true
+    user: airflow
+    password: "$DB_PASSWORD"
+
+  service:
+    type: ClusterIP
+    port: 5432
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+    vault.hashicorp.com/agent-inject-template-db-password: |
+      {{- with secret "secret/data/airflow-db-password" -}}
+      export DB_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+
+# PostgreSQL Database (for Airflow metadata)
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "$DB_PASSWORD"
+    username: airflow
+    password: "$DB_PASSWORD"
+    database: airflow
+  persistence:
+    enabled: true
+    size: 8Gi
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+    vault.hashicorp.com/agent-inject-template-db-password: |
+      {{- with secret "secret/data/airflow-db-password" -}}
+      export DB_PASSWORD={{ .Data.data.password }}
+      {{- end }}

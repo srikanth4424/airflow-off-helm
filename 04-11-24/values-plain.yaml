@@ -79,9 +79,53 @@ pgbouncer:
 # Redis Configurations (for Celery broker)
 redis:
   enabled: true
-  auth:
+  
+  # Specify your Redis image
+  image:
+    repository: redis
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Custom Redis configuration
+  configmap:
+    redis.conf: |
+      # Custom Redis Configuration
+      bind 0.0.0.0
+      requirepass your_secure_password
+      maxmemory 256mb
+      maxmemory-policy allkeys-lru
+      # Add other configurations as needed
+
+  # Volume and volumeMounts to use the custom config
+  extraVolumeMounts:
+    - name: redis-config
+      mountPath: /usr/local/etc/redis/redis.conf
+      subPath: redis.conf
+
+  extraVolumes:
+    - name: redis-config
+      configMap:
+        name: redis-config
+  
+  # Pass the custom configuration file as an argument to Redis
+  args:
+    - "/usr/local/etc/redis/redis.conf"
+
+  # Security context for Redis
+  securityContext:
+    fsGroup: 65534
+    runAsUser: 1000
+
+  # Liveness and readiness probes
+  livenessProbe:
     enabled: true
-    password: "redis-password"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
 
 # PostgreSQL Database (for Airflow metadata)
 postgresql:

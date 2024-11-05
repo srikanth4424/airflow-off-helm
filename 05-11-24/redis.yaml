@@ -1,0 +1,13 @@
+redis:
+  architecture: "standalone"  # Use standalone architecture for Redis
+  auth:
+    enabled: true
+    password: "redis-password"
+  master:
+    persistence:
+      enabled: false  # Disable persistence for testing; enable for production
+  metrics:
+    enabled: false  # Enable Redis metrics if required
+  global:
+    redis:
+      password:

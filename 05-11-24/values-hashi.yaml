@@ -1,0 +1,159 @@
+# Airflow Base Configuration with custom airflow.cfg in ConfigMap
+airflow:
+  image:
+    repository: custom-airflow-image
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Custom configuration for Airflow in ConfigMap
+  configmap:
+    airflow.cfg: |
+      [core]
+      executor = CeleryExecutor
+      load_examples = False
+      sql_alchemy_conn = postgresql+psycopg2://airflow:{{ .Env.DB_PASSWORD }}@pgbouncer-service:5432/airflow
+      fernet_key = {{ .Env.FERNET_KEY }}
+      [webserver]
+      secret_key = {{ .Env.WEBSERVER_KEY }}
+      [otel]
+      enabled = True
+      exporter = OTLP
+      otlp_endpoint = http://otel-collector:4317
+      instrumentation = True
+      traces_exporter = otlp
+
+  annotations:
+    vault.hashicorp.com/agent-inject: 'true'
+    vault.hashicorp.com/role: 'airflow-role'
+    vault.hashicorp.com/agent-inject-secret-db-password: 'secret/data/airflow-db-password'
+    vault.hashicorp.com/agent-inject-secret-redis-password: 'secret/data/airflow-redis-password'
+    vault.hashicorp.com/agent-inject-secret-webserver-key: 'secret/data/airflow-webserver-key'
+    vault.hashicorp.com/agent-inject-secret-fernet-key: 'secret/data/airflow-fernet-key'
+    vault.hashicorp.com/agent-inject-template-db-password: |
+      {{- with secret "secret/data/airflow-db-password" -}}
+      export DB_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-redis-password: |
+      {{- with secret "secret/data/airflow-redis-password" -}}
+      export REDIS_PASSWORD={{ .Data.data.password }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-webserver-key: |
+      {{- with secret "secret/data/airflow-webserver-key" -}}
+      export WEBSERVER_KEY={{ .Data.data.webserver_key }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-fernet-key: |
+      {{- with secret "secret/data/airflow-fernet-key" -}}
+      export FERNET_KEY={{ .Data.data.fernet_key }}
+      {{- end }}
+
+  extraVolumeMounts:
+    - name: airflow-config
+      mountPath: /opt/airflow/airflow.cfg
+      subPath: airflow.cfg
+
+  extraVolumes:
+    - name: airflow-config
+      configMap:
+        name: airflow-config
+
+  args:
+    - "-c"
+    - "/opt/airflow/airflow.cfg"
+
+# Redis Configuration with custom redis.conf in ConfigMap
+redis:
+  enabled: true
+  image:
+    repository: custom-redis-image
+    tag: latest
+  configmap:
+    redis.conf: |
+      bind 0.0.0.0
+      requirepass {{ .Env.REDIS_PASSWORD }}
+      maxmemory 256mb
+      maxmemory-policy allkeys-lru
+  extraVolumeMounts:
+    - name: redis-config
+      mountPath: /usr/local/etc/redis/redis.conf
+      subPath: redis.conf
+  extraVolumes:
+    - name: redis-config
+      configMap:
+        name: redis-config
+  args:
+    - "/usr/local/etc/redis/redis.conf"
+
+# PgBouncer Configuration with custom pgbouncer.ini in ConfigMap
+pgbouncer:
+  enabled: true
+  image:
+    repository: custom-pgbouncer-image
+    tag: latest
+    pullPolicy: IfNotPresent
+  configmap:
+    pgbouncer.ini: |
+      [databases]
+      airflow = host=postgresql port=5432 dbname=airflow user=airflow password=$DB_PASSWORD
+      [pgbouncer]
+      listen_port = 5432
+      max_client_conn = 100
+      default_pool_size = 20
+      reserve_pool_size = 5
+      reserve_pool_timeout = 5
+      auth_type = md5
+      ignore_startup_parameters = extra_float_digits
+  extraVolumeMounts:
+    - name: pgbouncer-config
+      mountPath: /etc/pgbouncer/pgbouncer.ini
+      subPath: pgbouncer.ini
+  extraVolumes:
+    - name: pgbouncer-config
+      configMap:
+        name: pgbouncer-config
+  args:
+    - "/etc/pgbouncer/pgbouncer.ini"
+
+# PostgreSQL Configuration with custom postgresql.conf in ConfigMap
+postgresql:
+  enabled: true
+  image:
+    repository: custom-postgresql-image
+    tag: latest
+  configmap:
+    postgresql.conf: |
+      max_connections = 100
+      shared_buffers = 128MB
+      work_mem = 4MB
+  extraVolumeMounts:
+    - name: postgres-config
+      mountPath: /etc/postgresql/postgresql.conf
+      subPath: postgresql.conf
+  extraVolumes:
+    - name: postgres-config
+      configMap:
+        name: postgres-config
+  args:
+    - "-c"
+    - "config_file=/etc/postgresql/postgresql.conf"
+
+# OpenTelemetry Collector Configuration
+otelCollector:
+  enabled: true
+  image:
+    repository: custom-otel-collector-image
+    tag: latest
+  config:
+    receivers:
+      otlp:
+        protocols:
+          http:
+          grpc:
+    exporters:
+      logging:
+      otlp:
+        endpoint: "otel-collector:4317"
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [logging, otlp]

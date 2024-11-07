@@ -1,0 +1,166 @@
+# values.override.yaml
+
+# 1. Set custom images
+defaultAirflowRepository: nexus.example.com/your-namespace/airflow
+defaultAirflowTag: your-airflow-tag
+
+images:
+  airflow:
+    repository: nexus.example.com/your-namespace/airflow
+    tag: your-airflow-tag
+    pullPolicy: IfNotPresent
+  redis:
+    repository: nexus.example.com/your-namespace/redis
+    tag: your-redis-tag
+    pullPolicy: IfNotPresent
+  pgbouncer:
+    repository: nexus.example.com/your-namespace/pgbouncer
+    tag: your-pgbouncer-tag
+    pullPolicy: IfNotPresent
+  # Include PostgreSQL custom image
+postgresql:
+  image:
+    registry: nexus.example.com
+    repository: your-namespace/postgresql
+    tag: your-postgres-tag
+    pullPolicy: IfNotPresent
+
+# 2. Image pull secrets
+imagePullSecrets:
+  - name: nexus-registry-secret
+
+# 3. Enable components
+executor: "CeleryExecutor"
+
+scheduler:
+  enabled: true
+  # ... (other configurations)
+  extraVolumes:
+    - name: custom-airflow-config
+      configMap:
+        name: custom-airflow-config
+  extraVolumeMounts:
+    - name: custom-airflow-config
+      mountPath: /opt/airflow/config/custom.cfg
+      subPath: custom.cfg
+
+webserver:
+  enabled: true
+  # ... (other configurations)
+  extraVolumes:
+    - name: custom-airflow-config
+      configMap:
+        name: custom-airflow-config
+  extraVolumeMounts:
+    - name: custom-airflow-config
+      mountPath: /opt/airflow/config/custom.cfg
+      subPath: custom.cfg
+
+workers:
+  replicas: 2
+  # ... (other configurations)
+  extraVolumes:
+    - name: custom-airflow-config
+      configMap:
+        name: custom-airflow-config
+  extraVolumeMounts:
+    - name: custom-airflow-config
+      mountPath: /opt/airflow/config/custom.cfg
+      subPath: custom.cfg
+
+triggerer:
+  enabled: true
+  # ... (other configurations)
+  extraVolumes:
+    - name: custom-airflow-config
+      configMap:
+        name: custom-airflow-config
+  extraVolumeMounts:
+    - name: custom-airflow-config
+      mountPath: /opt/airflow/config/custom.cfg
+      subPath: custom.cfg
+
+# 4. Disable optional components
+flower:
+  enabled: false
+kerberos:
+  enabled: false
+statsd:
+  enabled: false
+dagProcessor:
+  enabled: false
+cleanup:
+  enabled: false
+
+# 5. Apply custom configurations using extraConfigMaps
+extraConfigMaps:
+  custom-airflow-config:
+    data:
+      custom.cfg: |
+        [custom_section]
+        custom_key = custom_value
+
+  pgbouncer-config:
+    data:
+      pgbouncer.ini: |
+        [databases]
+        your_db = host=postgresql-host dbname=your_db
+        [pgbouncer]
+        listen_addr = 0.0.0.0
+        listen_port = 6543
+        auth_type = scram-sha-256
+        auth_file = /etc/pgbouncer/users.txt
+        # Other configurations
+      users.txt: |
+        "your_db_user" "SCRAM-SHA-256$iterations:4096$salt$stored_key$server_key"
+
+  custom-postgresql-config:
+    data:
+      postgresql.conf: |
+        max_connections = 200
+        shared_buffers = '256MB'
+        # Other configurations
+
+  custom-redis-config:
+    data:
+      redis.conf: |
+        maxmemory 256mb
+        maxmemory-policy allkeys-lru
+        # Other configurations
+
+# 6. PgBouncer configurations
+pgbouncer:
+  enabled: true
+  extraVolumes:
+    - name: pgbouncer-config
+      configMap:
+        name: pgbouncer-config
+  extraVolumeMounts:
+    - name: pgbouncer-config
+      mountPath: /etc/pgbouncer/pgbouncer.ini
+      subPath: pgbouncer.ini
+    - name: pgbouncer-config
+      mountPath: /etc/pgbouncer/users.txt
+      subPath: users.txt
+
+# 7. PostgreSQL configurations
+postgresql:
+  enabled: true
+  configurationConfigMap: custom-postgresql-config
+  # ... (other configurations)
+
+# 8. Redis configurations
+redis:
+  enabled: true
+  existingConfigmap: custom-redis-config
+  # ... (other configurations)
+
+# 9. Handle sensitive data with secrets (as before)
+extraSecrets:
+  # ... (as in previous steps)
+
+# 10. Disable Ingress and Network Policies
+ingress:
+  enabled: false
+networkPolicies:
+  enabled: false

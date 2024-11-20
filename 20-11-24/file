@@ -1,0 +1,29 @@
+I hope this email finds you well. Below is the summary of the work completed and ongoing progress related to Airflow tasks:
+
+Key Updates
+Airflow Deployment in Local Kind Cluster:
+
+Successfully completed and tested the deployment with sample DAGs.
+Verified that all functionalities and services are working as expected.
+Pull Request Submission:
+
+Raised a PR for all changes: RPPLAT-1736
+Added the Airflow official Helm chart and updated configurations as discussed.
+IKP DEV/Sandbox Deployment:
+
+Currently in progress.
+Detailed Task List
+Local Kind Cluster
+Added additional layers to the new official Airflow images and incorporated suggested changes in the Dockerfile.
+Tested Airflow using Docker Compose in the local environment, ensuring all functionalities are operational.
+Addressed the Nexus image pullback issue by creating a new pull secret for access.
+Configured secrets for every service to allow dynamic configuration changes without pod restarts.
+Implemented PostgreSQL database configuration and metadata connection secrets.
+Resolved permission errors for extra mounts in the PgBouncer pod and fixed the PgBouncer exporter container failure.
+Adjusted resource quotas for all services.
+Validated Airflow functionalities and configurations post-deployment.
+Airflow on DEV IKP
+Initiated Airflow deployment using Stratus with CI/CD changes for deployment to IKP.
+Progressed with Spark integration, Vault integration for secure configurations, and NAS integration for DAG and log storage.
+Configured ingress and initiated OTEL integration for monitoring.
+Let me know if you require additional details or have specific areas where you'd like more focus

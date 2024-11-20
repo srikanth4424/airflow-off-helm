@@ -1,0 +1,40 @@
+extraSecrets:
+  mydatabase-res:
+    type: Opaque
+    stringData:
+      connection: db+postgresql://airflow:db-password@airflow-pgbouncer.airflow:6543/airflow-db?sslmode=disable
+
+  mydatabase:
+    type: Opaque
+    stringData:
+      connection: postgresql+psycopg2://airflow:db-password@airflow-pgbouncer.airflow:6543/airflow-db?sslmode=disable
+
+  pgbouncer-stats-secret:
+    type: Opaque
+    stringData:
+      connection: postgresql://postgres:db-password@127.0.0.1:6543/pgbouncer?sslmode=disable
+
+  pgbouncer-custom-config:
+    type: Opaque
+    stringData:
+      pgbouncer.ini: |
+        [databases]
+        airflow-db = host=airflow-postgresql.airflow dbname=airflow-db port=5432 pool_size=10
+        
+        [pgbouncer]
+        pool_mode = transaction
+        listen_port = 6543
+        listen_addr = *
+        auth_type = md5
+        auth_file = /etc/pgbouncer/users.txt
+        stats_users = airflow
+        ignore_startup_parameters = extra_float_digits
+        max_client_conn = 100
+        verbose = 5
+        log_disconnections = 0
+        log_connections = 0
+        server_tls_sslmode = disable
+        server_tls_ciphers = normal
+      users.txt: |
+        "airflow" "md5c597d44c958a2f2f2a65a67d7ca5883d9"
+        "postgres" "md55a2074a026f5aada88ac83595954ead"
